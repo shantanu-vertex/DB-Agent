@@ -5,6 +5,8 @@ from openai import OpenAI
 
 from .retriever import RetrievalResult
 
+_GITHUB_MODELS_BASE_URL = "https://models.inference.ai.azure.com"
+
 
 def _context_block(results: Iterable[RetrievalResult]) -> str:
     return "\n\n".join(
@@ -18,28 +20,52 @@ def _fallback_answer(question: str, contexts: list[RetrievalResult]) -> str:
 
     snippets = "\n".join(f"- {item.text[:220]}" for item in contexts[:3])
     return (
-        "I could not use an LLM key, so here is a grounded extractive response based on retrieved JSON chunks.\n\n"
+        "No LLM key configured. Extractive response from retrieved chunks:\n\n"
         f"Question: {question}\n\n"
         f"Most relevant evidence:\n{snippets}"
     )
 
 
-def generate_answer(question: str, contexts: list[RetrievalResult]) -> str:
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
-    model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+def _build_client() -> tuple[OpenAI | None, str]:
+    """
+    Returns (client, model_name).
+    Priority:
+      1. GITHUB_TOKEN  → GitHub Models (OpenAI-compatible, free with GitHub account)
+      2. OPENAI_API_KEY → Standard OpenAI
+      3. Neither set   → return (None, "") to trigger fallback
+    """
+    github_token = os.getenv("GITHUB_TOKEN", "").strip()
+    if github_token:
+        model = os.getenv("GITHUB_MODEL", "gpt-4o-mini")
+        client = OpenAI(
+            api_key=github_token,
+            base_url=_GITHUB_MODELS_BASE_URL,
+        )
+        return client, model
 
-    if not api_key:
+    openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+    if openai_key:
+        model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+        client = OpenAI(api_key=openai_key)
+        return client, model
+
+    return None, ""
+
+
+def generate_answer(question: str, contexts: list[RetrievalResult]) -> str:
+    client, model = _build_client()
+
+    if client is None:
         return _fallback_answer(question, contexts)
 
-    client = OpenAI(api_key=api_key)
     context_text = _context_block(contexts)
 
-    response = client.responses.create(
+    response = client.chat.completions.create(
         model=model,
-        input=[
+        messages=[
             {
                 "role": "system",
-                "content": "Answer the user only using the retrieved context. If missing, clearly say it is not present.",
+                "content": "Answer the user only using the retrieved context. If the answer is not present, clearly say so.",
             },
             {
                 "role": "user",
@@ -52,4 +78,4 @@ def generate_answer(question: str, contexts: list[RetrievalResult]) -> str:
         ],
     )
 
-    return response.output_text or _fallback_answer(question, contexts)
+    return response.choices[0].message.content or _fallback_answer(question, contexts)

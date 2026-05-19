@@ -1,3 +1,5 @@
+import json
+import tempfile
 from pathlib import Path
 
 from .chunker import Chunk, chunk_text
@@ -16,6 +18,36 @@ class RAGPipeline:
         self.chunks = chunk_text(text, chunk_size=chunk_size, overlap=overlap)
         self.retriever = TfidfRetriever(self.chunks) if self.chunks else None
         return len(self.chunks)
+
+    def index_from_postgres(
+        self,
+        output_path: str | Path | None = None,
+        chunk_size: int = 900,
+        overlap: int = 150,
+    ) -> tuple[int, list[dict]]:
+        """
+        1. Extracts FK relationships from the local PostgreSQL database.
+        2. Optionally saves the relationship JSON to *output_path*.
+        3. Indexes the result via the existing index_json() flow.
+
+        Returns (chunk_count, relationship_records).
+        """
+        from src.schema.relationship_extractor import extract_relationships
+
+        records = extract_relationships(output_path)
+
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=".json", mode="w", encoding="utf-8"
+        ) as tmp:
+            json.dump(records, tmp, indent=2)
+            tmp_path = Path(tmp.name)
+
+        try:
+            count = self.index_json(tmp_path, chunk_size, overlap)
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+        return count, records
 
     def ask(self, question: str, top_k: int = 5) -> tuple[str, list[RetrievalResult]]:
         if not self.retriever:
