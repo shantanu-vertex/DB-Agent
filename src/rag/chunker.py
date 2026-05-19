@@ -1,4 +1,6 @@
+import json
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -30,4 +32,23 @@ def chunk_text(text: str, chunk_size: int = 900, overlap: int = 150) -> list[Chu
             index += 1
         start += step
 
+    return chunks
+
+
+def chunk_text_from_relationship_json(objects: list[dict[str, Any]]) -> list[Chunk]:
+    """
+    Converts a list of relationship objects into chunks.
+    Each top-level object becomes exactly one chunk (no size-based splitting).
+    """
+    if not objects:
+        return []
+
+    chunks: list[Chunk] = []
+    for index, item in enumerate(objects):
+        chunks.append(
+            Chunk(
+                id=f"chunk-{index}",
+                text=json.dumps(item, ensure_ascii=False),
+            )
+        )
     return chunks
