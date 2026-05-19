@@ -12,7 +12,7 @@ class RAGPipeline:
         self.chunks: list[Chunk] = []
         self.retriever: TfidfRetriever | None = None
 
-    def index_json(self, json_path: str | Path, chunk_size: int = 900, overlap: int = 150) -> int:
+    def index_json(self, json_path: str | Path) -> int:
         # text = load_json_text(json_path)
         # self.chunks = chunk_text(text, chunk_size=chunk_size, overlap=overlap)
         # self.retriever = TfidfRetriever(self.chunks) if self.chunks else None
@@ -23,9 +23,7 @@ class RAGPipeline:
 
     def index_from_postgres(
         self,
-        output_path: str | Path | None = None,
-        chunk_size: int = 900,
-        overlap: int = 150,
+        output_path: str | Path | None = None
     ) -> tuple[int, list[dict]]:
         """
         1. Extracts FK relationships from the local PostgreSQL database.

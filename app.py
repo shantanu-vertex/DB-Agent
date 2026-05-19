@@ -46,10 +46,6 @@ source = st.radio(
     horizontal=True,
 )
 
-col1, col2 = st.columns(2)
-chunk_size = col1.number_input("Chunk size", min_value=200, max_value=3000, value=900, step=100)
-overlap = col2.number_input("Overlap", min_value=0, max_value=1000, value=150, step=50)
-
 # ── Branch: JSON upload ───────────────────────────────────────────────────────
 if source == "Upload JSON file":
     with st.form("upload_form"):
@@ -59,8 +55,6 @@ if source == "Upload JSON file":
     if index_clicked:
         if uploaded is None:
             st.warning("Upload a JSON file first.")
-        elif overlap >= chunk_size:
-            st.warning("Overlap must be smaller than chunk size.")
         else:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as temp:
                 temp.write(uploaded.getvalue())
@@ -68,7 +62,7 @@ if source == "Upload JSON file":
 
             try:
                 count = st.session_state.pipeline.index_json(
-                    temp_path, int(chunk_size), int(overlap)
+                    temp_path
                 )
                 st.session_state.indexed = True
                 st.session_state.chunk_count = count
@@ -107,29 +101,24 @@ else:
         disabled=(st.session_state.pg_status != "ok"),
     )
     if pg_index_clicked:
-        if overlap >= chunk_size:
-            st.warning("Overlap must be smaller than chunk size.")
-        else:
-            with st.spinner("Querying PostgreSQL FK relationships…"):
-                try:
-                    output_path = Path(__file__).parent / "output" / "relationships.json"
-                    output_path.parent.mkdir(exist_ok=True)
-                    count, records = st.session_state.pipeline.index_from_postgres(
-                        output_path=output_path,
-                        chunk_size=int(chunk_size),
-                        overlap=int(overlap),
-                    )
-                    st.session_state.indexed = True
-                    st.session_state.chunk_count = count
-                    st.session_state.pg_records = records
-                    st.session_state.pg_output_path = output_path
-                    st.success(
-                        f"Found {len(records)} FK relationships. "
-                        f"Indexed into {count} chunks."
-                    )
-                except Exception as exc:
-                    st.session_state.indexed = False
-                    st.error(f"Failed to extract relationships: {exc}")
+        with st.spinner("Querying PostgreSQL FK relationships…"):
+            try:
+                output_path = Path(__file__).parent / "output" / "relationships.json"
+                output_path.parent.mkdir(exist_ok=True)
+                count, records = st.session_state.pipeline.index_from_postgres(
+                    output_path=output_path
+                )
+                st.session_state.indexed = True
+                st.session_state.chunk_count = count
+                st.session_state.pg_records = records
+                st.session_state.pg_output_path = output_path
+                st.success(
+                    f"Found {len(records)} FK relationships. "
+                    f"Indexed into {count} chunks."
+                )
+            except Exception as exc:
+                st.session_state.indexed = False
+                st.error(f"Failed to extract relationships: {exc}")
 
     # Show preview + download after a successful extraction
     if st.session_state.pg_records and st.session_state.pg_output_path:
