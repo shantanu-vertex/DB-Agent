@@ -1,83 +1,77 @@
-# JSON RAG Assistant
+# DB Agent
 
-A Streamlit app that lets you upload a JSON file, chunk its content, run retrieval, and answer prompts using retrieved context.
+A Streamlit + MCP assistant that answers **functional questions about a database**.
 
-## Features
+Two sources are supported from the same UI:
 
-- Upload JSON from the UI
-- Chunk JSON text with configurable chunk size and overlap
-- Retrieve top matching chunks using TF-IDF similarity
-- Generate grounded answers using OpenAI (if `OPENAI_API_KEY` is set)
-- Fallback to extractive grounded response without an API key
+- **Postgres (live)** – introspects a local Postgres database, writes a structured `cache/schema.json`, then indexes it. Uses **hash-based auto-detect**: the cache is only rewritten when the live schema actually changes.
+- **JSON file** – upload an existing schema/JSON document and index it directly.
 
-## Requirements
+The same retrieval pipeline (TF-IDF + grounded LLM answer) is also exposed as an **MCP server** for use inside VS Code (Copilot Chat agent mode).
 
-- Python 3.11+
-- pip (bundled with most Python installs)
-- Visual Studio Code
+## Two ways to run
 
-## Install Prerequisites And Tools
-
-1. Install Python 3.11 or newer from the official Python installer.
-2. During Python setup, enable **Add Python to PATH**.
-3. Install Visual Studio Code.
-4. (Optional) Install Git if you want to clone and version-control the project.
-
-Verify your installation:
-
-```bash
-python --version
-pip --version
-```
-
-## Install VS Code Extensions
-
-Install these extensions from the Extensions view in VS Code:
-
-- Python (`ms-python.python`)
-- Pylance (`ms-python.vscode-pylance`)
-
-Or install from terminal:
-
-```bash
-code --install-extension ms-python.python
-code --install-extension ms-python.vscode-pylance
-```
-
-## Setup
-
-1. Create and activate a virtual environment.
+### 1. Local UI (Streamlit)
 
 ```powershell
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-```
-
-2. Install dependencies:
-
-```bash
 pip install -r requirements.txt
-```
-
-3. Optional: configure OpenAI key:
-
-```bash
-copy .env.example .env
-```
-
-Then set `OPENAI_API_KEY` in `.env`.
-
-## Run
-
-```bash
+copy .env.example .env   # then fill in PG_* and OPENAI_API_KEY
 streamlit run app.py
 ```
 
-## How to use
+In the UI:
+1. Pick **Postgres (live)** or **JSON file**.
+2. Postgres mode: click **Refresh from Postgres**. If `cache/schema.json` does not exist it is generated; if it exists, the live schema hash is compared and the cache is reused when unchanged.
+3. Ask a question.
 
-1. Upload a JSON file.
-2. Click **Index JSON**.
-3. Enter a prompt.
-4. Click **Get Answer**.
+### 2. VS Code MCP server
 
-The app displays the answer and the retrieved chunks used for that answer.
+The repo ships [.vscode/mcp.json](.vscode/mcp.json) which registers a `db-agent` MCP server pointing at [src/mcp_server.py](src/mcp_server.py).
+
+Tools exposed:
+
+| Tool | Purpose |
+| --- | --- |
+| `refresh_index(force=False)` | Rebuild the schema JSON from Postgres (hash-based; `force=True` to skip the hash check). |
+| `ask(question, top_k=5)` | Grounded answer over the indexed schema. |
+| `list_tables(schema?)` | Plain list of base tables. |
+| `get_object_ddl(name, kind, schema?)` | DDL for a `table`, `view`, or `function`. |
+
+Open the workspace in VS Code, then in Copilot Chat **Agent** mode the `db-agent` tools become available.
+
+## Configuration (`.env`)
+
+```
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4.1-mini
+
+PG_HOST=localhost
+PG_PORT=5432
+PG_DB=postgres
+PG_USER=postgres
+PG_PASSWORD=
+PG_SCHEMA=public
+
+SCHEMA_CACHE_PATH=cache/schema.json
+```
+
+Use a **read-only Postgres role**. The agent never executes free-form SQL.
+
+## Project layout
+
+```
+app.py                  # Streamlit UI (JSON or Postgres source)
+src/
+  mcp_server.py         # FastMCP server (stdio) for VS Code
+  rag/
+    pg_loader.py        # Postgres introspection -> JSON + sha256 hash
+    json_loader.py      # JSON -> flat key.path: value text
+    chunker.py          # Overlapping char chunks
+    retriever.py        # TF-IDF retriever
+    llm.py              # OpenAI Responses call (extractive fallback)
+    pipeline.py         # index_json / index_postgres / ask
+.vscode/mcp.json        # VS Code MCP registration
+```
+

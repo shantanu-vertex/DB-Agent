@@ -1,0 +1,23 @@
+{
+  "servers": {
+    "db-agent": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "args": ["-m", "src.mcp_server"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PG_HOST": "localhost",
+        "PG_PORT": "5432",
+        "PG_DB": "postgres",
+        "PG_USER": "postgres",
+        "PG_PASSWORD": "",
+        "PG_SCHEMA": "public",
+        "SCHEMA_CACHE_PATH": "${workspaceFolder}/cache/schema.json",
+        "OSERIES_ROOT": "C:/dev/oseries",
+        "OSERIES_CACHE_PATH": "${workspaceFolder}/cache/oseries_schema.json",
+        "GITHUB_TOKEN": "${env:GITHUB_TOKEN}",
+        "GITHUB_COPILOT_MODEL": "gpt-4o"
+      }
+    }
+  }
+}
