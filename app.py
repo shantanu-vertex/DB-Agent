@@ -154,7 +154,9 @@ if ask_clicked:
     else:
         with st.spinner("Running retrieval and generating answer..."):
             try:
-                answer, contexts = st.session_state.pipeline.ask(question, top_k=5)
+                default_top_k = os.getenv("TOP_K", str(5)).strip()
+                effective_top_k = min(st.session_state.chunk_count, int(default_top_k))
+                answer, contexts = st.session_state.pipeline.ask(question, top_k=effective_top_k)
                 st.subheader("Answer")
                 st.write(answer)
 

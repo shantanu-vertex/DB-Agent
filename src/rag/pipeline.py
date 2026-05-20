@@ -2,7 +2,7 @@ from pathlib import Path
 
 from .chunker import Chunk, chunk_text, chunk_text_from_relationship_json
 from .json_loader import load_json_text
-from .llm import generate_answer
+from .llm import generate_answer_budgeted
 from .retriever import RetrievalResult, TfidfRetriever
 from src.schema.relationship_extractor import extract_relationships
 
@@ -46,5 +46,5 @@ class RAGPipeline:
             raise RuntimeError("No JSON index found. Upload and index a JSON file first.")
 
         results = self.retriever.search(question, top_k=top_k)
-        answer = generate_answer(question, results)
+        answer = generate_answer_budgeted(question, results)
         return answer, results
