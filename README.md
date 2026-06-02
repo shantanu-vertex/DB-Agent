@@ -4,10 +4,11 @@ A Streamlit app that lets you upload a JSON file, chunk its content, run retriev
 
 ## Features
 
-- Upload JSON from the UI
-- Chunk JSON text with configurable chunk size and overlap
-- Retrieve top matching chunks using TF-IDF similarity
-- Generate grounded answers using OpenAI (if `OPENAI_API_KEY` is set)
+- Extract JSON from DB, Atlassian and from code base
+- Agent to use these JSON as an input and generate the enriched Schema JSON, with required intelligence 
+- Chunk and vectorize JSON and store in vector DB
+- Retrieve top matching chunks using similarity search
+- Generate grounded answers, SQL queries, ERD using OpenAI (if `OPENAI_API_KEY` is set)
 - Fallback to extractive grounded response without an API key
 
 ## Requirements
